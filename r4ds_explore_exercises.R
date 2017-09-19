@@ -10,7 +10,7 @@ library(hexbin)
 
 # 1. Run ggplot(data = mpg). What do you see?
 
-ggplot(data=mpg) 
+ggplot(data = mpg) 
 
 # Nothing, it just loaded the data source but we did not specify any geometric/aesthetic mappings.
 

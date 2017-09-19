@@ -987,6 +987,3 @@ ggplot(data = diamonds) +
 # Probably because the color gradient is too subtle to tell if a bin has some outliers. A few outliers in a bin is not
 # going to have a very noticeable impact on the resulting color of that bin. With scatterplots it's obvious because
 # you can see the gap in position in both dimensions.
-
-
-

@@ -1,0 +1,321 @@
+---
+title: "r4ds_wrangle_exercises_12-13"
+output: html_document
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse, quietly = TRUE)
+library(stringr, quietly = TRUE)
+library(nycflights13)
+library(babynames)
+library(nasaweather)
+library(fueleconomy)
+library(maps)
+```
+
+## 12.2.1 Exercises
+
+### 1. Using prose, describe how the variables and observations are organised in each of the sample tables.
+
+table1 is tidy: each variable is a column, each observation is a row, each value is a cell. The converse is true as well.
+table2 has a 'type' key for cases and population, and has counts for the values.
+table3 is like table1 except the two variables have been combined into one variable called 'rate'.
+tables 4a and 4b have separated out the variables of cases and population, but oddly enough in each table, the values of 'year' are the columns, instead of having the variable 'year' be the column header with the values as observations.
+
+### 2. Compute the rate for table2, and table4a + table4b. You will need to perform four operations:
+
+Extract the number of TB cases per country per year.  
+Extract the matching population per country per year.  
+Divide cases by population, and multiply by 10000.  
+Store back in the appropriate place.  
+
+Which representation is easiest to work with? Which is hardest? Why?
+
+```{r, message=FALSE, warning=FALSE}
+table2 %>% spread(type, count) %>% mutate(rate = cases/population * 10000)
+
+(table4 <- table4a %>% mutate(`1999` = table4a$`1999` / table4b$`1999` * 10000,
+                             `2000` = table4a$`2000` / table4b$`2000` * 10000))
+
+```
+Found it easier to work with table2 since everything was already in the same place.
+
+### 3. Recreate the plot showing change in cases over time using table2 instead of table1. What do you need to do first?
+
+```{r}
+table2 %>% spread(type, count) %>% 
+  ggplot(aes(year, cases, color = country)) + geom_line() + geom_point()
+```
+
+## 12.3.3 Exercises
+
+### 1. Why are gather() and spread() not perfectly symmetrical? Carefully consider the following example:
+
+```{r, results="hide"}
+stocks <- tibble(
+  year   = c(2015, 2015, 2016, 2016),
+  half  = c(   1,    2,     1,    2),
+  return = c(1.88, 0.59, 0.92, 0.17)
+)
+stocks %>% 
+  spread(year, return) %>% 
+  gather("year", "return", `2015`:`2016`)
+```
+
+(Hint: look at the variable types and think about column names.)
+
+Both spread() and gather() have a convert argument. What does it do?
+
+```{r}
+stocks
+```
+Originally, year was a double but when gathered it turns into a character (due to default gather behavior). Because the column's variable type was not carried over, gather() and spread() were not perfectly symmetrical in this case.
+
+
+```{r, eval=FALSE}
+?gather
+?spread
+```
+
+Setting the convert option to true will have gather/spread conver the values if needed (e.g. form strings to numerics).
+
+### 2. Why does this code fail?
+
+```{r, eval=FALSE}
+table4a %>% 
+  gather(1999, 2000, key = "year", value = "cases")
+```
+
+This failed because it neglected the fact that `1999` and `2000` should be wrapped in ` marks in order to specify that they are name strings rather than numerics.
+
+```{r}
+table4a %>% 
+  gather(`1999`, `2000`, key = "year", value = "cases")
+```
+
+### 3. Why does spreading this tibble fail? How could you add a new column to fix the problem?
+
+```{r, eval=FALSE}
+people <- tribble(
+  ~name,             ~key,    ~value,
+  #-----------------|--------|------
+  "Phillip Woods",   "age",       45,
+  "Phillip Woods",   "height",   186,
+  "Phillip Woods",   "age",       50,
+  "Jessica Cordero", "age",       37,
+  "Jessica Cordero", "height",   156
+)
+
+people
+people %>% spread("key", "value")
+```
+
+The key "age" is repeated in two separate observations for Phillip Woods. A possible solution:
+
+```{r}
+people <- tribble(
+  ~name,             ~key,    ~value, ~recNo,
+  #-----------------|--------|------
+  "Phillip Woods",   "age",       45, 1,
+  "Phillip Woods",   "height",   186, 1,
+  "Phillip Woods",   "age",       50, 2,
+  "Jessica Cordero", "age",       37, 1,
+  "Jessica Cordero", "height",   156, 1
+)
+
+people %>% spread("key", "value")
+```
+
+There just won't be a height associated with the second age record, since I attributed the height observation to record number 1 when tribbling.
+
+### 4. Tidy the simple tibble below. Do you need to spread or gather it? What are the variables?
+
+```{r}
+preg <- tribble(
+  ~pregnant, ~male, ~female,
+  "yes",     NA,    10,
+  "no",      20,    12
+)
+```
+
+If we want to tidy it, we should gather it given that 'male' and 'female' are values of gender rather than variables themselves. The variables are pregnant, gender, and count.
+
+```{r}
+(preg2 <- preg %>%
+  gather(male, female, key = "gender", value = "count"))
+```
+
+## 12.4.3 Exercises
+
+### 1. What do the extra and fill arguments do in separate()? Experiment with the various options for the following two toy datasets.
+
+```{r eval=FALSE}
+?separate
+```
+
+The extra and fill options respectively designate what should happen if there are too many or not enough separator characters.
+
+
+```{r}
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"), extra = "merge")
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"), extra = "drop")
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"), fill = "left")
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"), fill = "right")
+```
+
+### 2. Both unite() and separate() have a remove argument. What does it do? Why would you set it to FALSE?
+
+```{r, eval=FALSE}
+?unite
+?separate
+```
+
+Remove removes the input columns from the end result; perhaps we'd set it to FALSE in cases where we want to see the original column alongside the newly separated (or united) columns.
+
+### 3. Compare and contrast separate() and extract(). Why are there three variations of separation (by position, by separator, and with groups), but only one unite?
+
+```{r, eval=FALSE}
+?extract
+```
+
+Honestly not entirely sure what is meant by "capturing groups" but as far as the difference in number of variations for separation and unite, it's likely because that uniting any of those three types of separate elements will all result in a similar/same thing.
+
+## 12.5.1 Exercises
+
+### 1. Compare and contrast the fill arguments to spread() and complete().
+
+fill() reminds me more of gather() than spread(), in that it is like a gather() that explicitly lists NA values. It is also very similar to complete, except instead of generating/filling records of implicitly missing observations with "NA", it replaces explicitly missing observations with the actual values.
+
+### 2. What does the direction argument to fill() do?
+
+```{r, eval=FALSE}
+?fill
+```
+
+Specifies whether to fill values upwards or downwards.
+
+## 12.6.1
+
+### 1. In this case study I set `na.rm = TRUE` just to make it easier to check that we had the correct values. Is this reasonable? Think about how missing values are represented in this dataset. Are there implicit missing values? What's the difference between an NA and zero?
+
+It is probably fine, as zero cases being recorded for a given year is not too unlike the data not being there at all; unless there is some reason I am missing that we would want to keep that explicitly in the data set. Considering that one person can only fall into one of the age/sex category, it makes sense to me that we would remove the NAs upon gathering the data. The difference between an NA and zero is that the latter is a value (that may tell us that nothing was recorded) whereas the former is absence itself.
+
+### 2. What happens if you neglect the mutate() step? (`mutate(key = stringr::str_replace(key, "newrel", "new_rel"))`)
+
+You're going to run into there not being enough values to fill your three columns when you're trying to separate.
+
+### 3. I claimed that iso2 and iso3 were redundant with country. Confirm this claim.
+
+```{r}
+who %>% filter(iso2 != toupper(str_sub(country, 1, 2)) | iso3 != toupper(str_sub(country, 1, 3)))
+```
+
+Eh, I'm satisfied.
+
+### 4. For each country, year, and sex compute the total number of cases of TB. Make an informative visualisation of the data.
+
+```{r}
+who1 <- who %>%
+  gather(code, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(code = stringr::str_replace(code, "newrel", "new_rel")) %>%
+  separate(code, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1) %>% 
+  group_by(country, year, sex) %>% 
+  filter(year > 1993) %>% 
+  summarize(cases = sum(value))
+
+who1 %>% ggplot(aes(year, cases)) + 
+  geom_col(aes(color = country)) + theme(legend.position = "none") + 
+  facet_wrap(~ sex)
+```
+
+## 13.2.1 Exercises
+
+### 1. Imagine you wanted to draw (approximately) the route each plane flies from its origin to its destination. What variables would you need? What tables would you need to combine?
+
+```{r}
+glimpse(airports)
+```
+
+
+Variables: Origin and destination airports, tailnum of the plane, longitude and latitude of the airports. Would want to join `airports` onto `flights` twice, one for origin and one for destination in order to get the coordinates for both.
+
+### 2. I forgot to draw the relationship between `weather` and `airports`. What is the relationship and how should it appear in the diagram?
+
+```{r}
+glimpse(weather)
+```
+
+You can join `weather` and `airports` using the respective keys of `origin` and `faa`.
+
+### 3. `weather` only contains information for the origin (NYC) airports. If it contained weather records for all airports in the USA, what additional relation would it define with `flights`?
+
+It would likely have to contain `destination` in addition to `origin`.
+
+### 4. We know that some days of the year are "special", and fewer people than usual fly on them. How might you represent that data as a data frame? What would be the primary keys of that table? How would it connect to the existing tables?
+
+You would have distinct month and day combinations which you could then use as keys to join onto the `flights` table. In addition you might have another column that is "Holiday Name" and/or some sort of explanation as to why that day is low traffic. 
+
+## 13.3.1 Exercises
+
+### 1. Add a surrogate key to `flights`.
+
+```{r}
+glimpse(flights %>% mutate(surrogId = paste0(year, month, day, dep_time, carrier, tailnum, origin)))
+```
+
+### 2. Identify the keys in the following datasets
+
+```{r, results="hide"}
+glimpse(Lahman::Batting) # playerID, yearID, teamID
+glimpse(babynames::babynames) # doesn't appear to be one, so just "name" I guess
+glimpse(nasaweather::atmos) # doesn't appear to be one; could use a surrogate of concatted lat, long, year, month
+glimpse(fueleconomy::vehicles) # id
+glimpse(ggplot2::diamonds) # doesn't really have on; easiest to just to order by something and use consecutive natural numbers
+```
+
+### 3. Draw a diagram illustrating the connections between the `Batting`, `Master`, and `Salaries` tables in the Lahman package. Draw another diagram that shows the relationship between `Master`, `Managers`, `AwardsManagers`. How would you characterise the relationship between the Batting, Pitching, and Fielding tables?
+
+```{r, eval=FALSE}
+glimpse(Lahman::Batting)
+glimpse(Lahman::Master)
+glimpse(Lahman::Salaries)
+glimpse(Lahman::Managers)
+glimpse(Lahman::AwardsManagers)
+```
+
+```{r, eval=FALSE}
+Batting (playerID) Master
+Batting (playerID, teamID) Salaries
+Master (playerID) Managers (playerID) AwardsManagers
+```
+
+```{r, eval=FALSE}
+glimpse(Lahman::Batting)
+glimpse(Lahman::Pitching)
+glimpse(Lahman::Fielding)
+```
+
+They all store different parts of a player's game and can be joined together on `(playerID, yearID, teamID)`.
+
+## 13.4.6 Exercises
+
+### 1. Compute the average delay by destination, then join on the `airports` data frame so you can show the spatial distribution of delays. Here's an easy way to draw a map of the United States:
+
+```{r}
+airports %>%
+  semi_join(flights, c("faa" = "dest")) %>%
+  ggplot(aes(lon, lat)) +
+    borders("state") +
+    geom_point() +
+    coord_quickmap()
+```
+

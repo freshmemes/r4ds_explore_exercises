@@ -7,3 +7,157 @@ output: html_document
 library(tidyverse)
 library(stringr)
 ```
+
+## 14.2.5 Exercises
+
+### 1. In code that doesn't use stringr, you'll often see `paste()` and `paste0()`. What's the difference between the two functions? What stringr function are they equivalent to? How do the functions differ in their handling of `NA`?
+
+```{r, eval=FALSE}
+?paste
+?paste0
+stringr::str_c("a", NA)
+paste("a", NA)
+```
+
+`paste` is like `str_c` except you need to specify a separator (which if you don't the default is a space). `paste0` is `paste` with the separator set to nothing. `str_c` deals with NA values as a "traditional" operation would - trying to concat NA with anything else will result in NA. Whereas paste will literally concat the string "NA" onto whatever else.
+
+### 2. In your own words, describe the difference between the `sep` and `collapse` arguments to `str_c()`.
+
+`sep` operates on individual strings, `collapse` operates on vectors of strings.
+
+### 3. Use `str_length()` and `str_sub()` to extract the middle character from a string. What will you do if the string has an even number of characters?
+
+```{r}
+odd <- "horse"
+even <- "horseman"
+
+stringr::str_sub(odd, stringr::str_length(odd)/2 + 0.5, stringr::str_length(odd)/2 + 0.5)
+stringr::str_sub(even, stringr::str_length(even)/2, stringr::str_length(even)/2 + 1)
+```
+
+### 4. What does `str_wrap()` do? When might you want to use it?
+
+```{r, eval=FALSE}
+?str_wrap
+```
+
+Seems like it would wrap a string onto a new line(s) if it is too long. This could be useful for formatting, if we don't want lines of text to spill over a certain width.
+
+### 5. What does `str_trim()` do? What's the opposite of `str_trim()`?
+
+```{r, eval=FALSE}
+?str_trim
+```
+
+It removes white space on either side of a string. The opposite is `str_pad()`.
+
+### 6. Write a function that turns (e.g.) a vector `c("a", "b", "c")` into the string `a, b, and c`. Think carefully about what it should do if given a vector of length 0, 1, or 2.
+
+```{r}
+vector3 <- c("a", "b", "c")
+vector2 <- c("a", "b")
+vector1 <- c("a")
+vector0 <- c()
+
+str_c(str_c(vector3[-length(vector3)], collapse = ", "), vector3[length(vector3)], sep = ifelse(length(vector3) > 2, ", and ", ", "))
+str_c(str_c(vector2[-length(vector2)], collapse = ", "), vector2[length(vector2)], sep = ifelse(length(vector2) > 2, ", and ", ", "))
+str_c(str_c(vector1[-length(vector1)], collapse = ", "), vector1[length(vector1)], sep = ifelse(length(vector1) > 2, ", and ", ", "))
+str_c(str_c(vector0[-length(vector0)], collapse = ", "), vector0[length(vector0)], sep = ifelse(length(vector0) > 2, ", and ", ", "))
+```
+
+## 14.3.1.1 Exercises
+
+### 1. Explain why each of these strings don't match a `\`:
+
+`\` doesn't match because it is interpreted as an escape character rather than the actual character.
+
+`\\` is an escape character in a regexp.
+
+`\\\` is a literal backslash and regexp escape character next to each other.
+
+Ugh, this is getting way to inception-y for me.
+
+
+### 2. How would you match the sequence `"'\`?
+
+`'"\'\\'`
+
+
+### 3. What patterns will the regular expression `\..\..\..` match? How would you represent it as a string?
+
+It will match anything that looks like `.%.%.%` where the dots are literal dots and `%` stands for the wild card.
+
+To represent it as a string, we could try `"\\.\\.\\."`.
+
+## 14.3.2.1 Exercises
+
+### 1. How would you match the literal string `"$^$"`?
+
+`"^\\$\\^\\$$"`
+
+### 2. Given the corpus of common words in stringr::words, create regular expressions that find all words that:
+
+### 3. Start with "y".
+
+```{r}
+stringr::str_view(stringr::words, "^y.", match = TRUE)
+```
+
+### 4. End with "x"
+```{r}
+stringr::str_view(stringr::words, ".x$", match = TRUE)
+```
+
+### 5. Are exactly three letters long.
+```{r}
+stringr::str_view(stringr::words, "^...$", match = TRUE)
+```
+
+### 6. Have seven letters or more.
+
+```{r}
+stringr::str_view(stringr::words, ".......", match = TRUE)
+```
+
+## 14.3.3.1 Exercises
+
+### 1. Create regular expressions to find all words that:
+
+```{r}
+nato <- c("alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa", "quebec", "romeo", "sierra", "tango", "uniform", "victor", "whiskey", "x-ray", "yankee", "zulu", "asdf")
+```
+
+#### 1. Start with a vowel.
+```{r}
+stringr::str_view(nato, "^(a|e|i|o|u)", match = T)
+```
+
+#### 2. That only contain consonants. (Hint: thinking about matching "not"-vowels.)
+```{r}
+stringr::str_view(nato, ".[^aeiou].", match = T)
+```
+
+WADU HEK, why didn't that work...
+
+#### 3. End with `ed`, but not with `eed`.
+```{r}
+stringr::str_view(c("feed", "fed"), "[^e]ed$")
+```
+
+#### 4. End with `ing` or `ise`.
+```{r}
+stringr::str_view(c("sample", "devising", "demise"), "ing$|ise$")
+```
+
+### 2. Empirically verify the rule "i before e except after c".
+
+Y'all already know that shit is a lie.
+```{r}
+stringr::str_view(stringr::words, "[^c]ei", match = T)
+```
+
+Yeah right bruh, only one counterexample is not representative, that is cherrypicking -- I can do it, too: seize, heinous, foreign, neighbor, beige, weird, their.
+
+
+
+

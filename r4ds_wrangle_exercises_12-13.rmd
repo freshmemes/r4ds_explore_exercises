@@ -468,6 +468,3 @@ flights %>%
 ```
 
 There are 18 tailnums that have been associated with two carriers. Either different carriers are using the same tailnum (which I doubt), or two carriers merged and did not change the tailnums on those 18 planes post-merger.
-
-
-

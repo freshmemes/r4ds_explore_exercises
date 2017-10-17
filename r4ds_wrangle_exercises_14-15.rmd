@@ -158,6 +158,109 @@ stringr::str_view(stringr::words, "[^c]ei", match = T)
 
 Yeah right bruh, only one counterexample is not representative, that is cherrypicking -- I can do it, too: seize, heinous, foreign, neighbor, beige, weird, their.
 
+### 3. Is "q" always followed by a "u"?
+
+```{r}
+stringr::str_view(stringr::words, "qu", match = T)
+stringr::str_view(stringr::words, "q[^u]", match = T)
+```
+
+It would appear so as there are no counterexamples, at least in the `words` set.
+
+### 4. Write a regular expression that matches a word if it's probably written in British English, not American English.
+
+```{r}
+stringr::str_view(stringr::words, "our|ise", match = T)
+```
+
+Welp, that somewhat worked.
+
+### 5. Create a regular expression that will match telephone numbers as commonly written in your country.
+
+```{r}
+sample_numbers <- "555-5555, 1234-5678"
+stringr::str_view(sample_numbers, "\\d\\d\\d-\\d\\d\\d\\d")
+```
+
+## 14.4.2 Exercises
+
+### 1. For each of the following challenges, try solving it by using both a single regular expression, and a combination of multiple `str_detect()` calls.
+
+#### 1. Find all words that start or end with `x`.
+```{r}
+stringr::str_view(stringr::words, "(^x)|(x$)", match = T)
+xbegin <- stringr::str_detect(stringr::words, "^x")
+xend <- stringr::str_detect(stringr::words, "x$")
+stringr::words[xbegin | xend]
+```
+
+#### 2. Find all words that start with a vowel and end with a consonant.
+```{r}
+stringr::str_view(stringr::words, "^[aeiou].*[^aeiou]$", match = T)
+vbegin <- stringr::str_detect(stringr::words, "^[aeiou]")
+cend <- stringr::str_detect(stringr::words, "[^aeiou]$") 
+stringr::words[vbegin & cend]
+```
+
+#### 3. Are there any words that contain at least one of each different vowel?
+```{r}
+# not even going to bother trying using str_view for this one
+a <- stringr::str_detect(stringr::words, "a")
+e <- stringr::str_detect(stringr::words, "e")
+i <- stringr::str_detect(stringr::words, "i")
+o <- stringr::str_detect(stringr::words, "o")
+u <- stringr::str_detect(stringr::words, "u")
+stringr::words[a & e & i & o & u]
+```
+
+Nope, not in this `words` set.
+
+
+### 2. What word has the highest number of vowels? What word has the highest proportion of vowels? (Hint: what is the denominator?)
+
+```{r}
+vwords <- as.tibble(stringr::words) %>% 
+  mutate(vcount = stringr::str_count(value, "[aeiou]"))
+vwords %>% 
+  arrange(desc(vcount)) %>% 
+  head()
+
+vwords2 <- vwords %>%
+  mutate(vprop = vcount / stringr::str_length(value))
+vwords2 %>% 
+  arrange(desc(vprop)) %>% 
+  head()
+```
+
+A lot of words have 5 vowels, so it's a tie. The word "a" has the highest vowel proportion at 100%.
+
+## 14.4.6.1 Exercises
+
+### 1. Split up a string like `"apples, pears, and bananas"` into individual components.
+
+```{r}
+stringr::str_split("apples, pears, and bananas", ", (and )?")[[1]]
+```
+
+### 2. Why is it better to split up by `boundary("word")` than `" "`?
+
+It's more robust. Splitting by `" "` is also going to capture the space between sentences and include punctuation like commas in the words.
+
+### 3. What does splitting with an empty string (`""`) do? Experiment, and then read the documentation.
+
+```{r}
+stringr::str_split("apples, pears, and bananas", "")[[1]]
+```
+
+Appears to split every character. According to `?str_split`, this is equivalent to using `boundary("character")`.
+
+
+
+
+
+
+
+
 
 
 

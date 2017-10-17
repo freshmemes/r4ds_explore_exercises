@@ -6,6 +6,7 @@ output: html_document
 ```{r, message=FALSE, warning=FALSE, results="hide"}
 library(tidyverse)
 library(stringr)
+library(forcats)
 ```
 
 ## 14.2.5 Exercises
@@ -254,13 +255,104 @@ stringr::str_split("apples, pears, and bananas", "")[[1]]
 
 Appears to split every character. According to `?str_split`, this is equivalent to using `boundary("character")`.
 
+## 15.4.1 Exercises
 
+### 1. There are some suspiciously high numbers in `tvhours`. Is the mean a good summary?
 
+```{r}
+as.tibble(gss_cat$tvhours) %>%
+  filter(!is.na(value)) %>% 
+  ggplot(aes(factor(0), value)) +
+  geom_boxplot()
+```
 
+The mean is not a good summary as it will be skewed by those outliers. The median is usually an appropriate substitute for those circumstances.
 
+### 2. For each factor in gss_cat identify whether the order of the levels is arbitrary or principled.
 
+```{r, eval=FALSE}
+head(gss_cat)
+levels(gss_cat$marital) # ordered from best to worst marital status ... but in all seriousness, seems arbitrary
+levels(gss_cat$race) # arbitrary
+levels(gss_cat$rincome) # ordered from highest to lowest brackets, except for the non-answers
+levels(gss_cat$partyid) # starts with non-answers, then ordered from R-to-D spectrum
+levels(gss_cat$relig) # arbitrary; I also like how "Native american" is lumped as a singular religion while both "Christian" and specific denominations of Christianity are listed individually 
+levels(gss_cat$denom) # ordered arbitrarily into clumps of main denominations, within which subdenominations are ordered arbitrarily
+```
 
+### 3. Why did moving "Not applicable" to the front of the levels move it to the bottom of the plot?
 
+Assuming this is in reference to the `rincome` plot, it's because the highest value incomes are plotted to nearest the bottom in the graph, and we've designated "Not applicable" to be ahead of all the highest income brackets.
 
+## 15.5.1 Exercises
 
+### 1. How have the proportions of people identifying as Democrat, Republican, and Independent changed over time?
 
+```{r}
+politiswag <- gss_cat %>% 
+  mutate(partyid = fct_recode(partyid,
+    "Republican" = "Strong republican",
+    "Republican" = "Not str republican",
+    "Republican" = "Ind,near rep",
+    "Democrat" = "Strong democrat",
+    "Democrat" = "Not str democrat",
+    "Democrat" = "Ind,near dem",
+    "Other" = "No answer",
+    "Other" = "Don't know",
+    "Other" = "Other party")) %>% 
+  count(year, partyid) %>% 
+  group_by(year) %>% 
+  mutate(sum = sum(n)) %>% 
+  ungroup() %>% 
+  mutate(prop = n / sum)
+
+politiswag %>% 
+  ggplot(aes(year, prop, color = partyid)) +
+  geom_line()
+```
+
+For a more loose interpretation of Independents:
+
+```{r}
+politiswag2 <- gss_cat %>% 
+  mutate(partyid = fct_recode(partyid,
+    "Republican" = "Strong republican",
+    "Republican" = "Not str republican",
+    "Independent" = "Ind,near rep",
+    "Democrat" = "Strong democrat",
+    "Democrat" = "Not str democrat",
+    "Independent" = "Ind,near dem",
+    "Other" = "No answer",
+    "Other" = "Don't know",
+    "Other" = "Other party")) %>% 
+  count(year, partyid) %>% 
+  group_by(year) %>% 
+  mutate(sum = sum(n)) %>% 
+  ungroup() %>% 
+  mutate(prop = n / sum)
+
+politiswag2 %>% 
+  ggplot(aes(year, prop, color = partyid)) +
+  geom_line()
+```
+
+GOP more like RIP... In either case, Independents and Other have been on the up and up since 2004. Meanwhile, Republicans have been on the decline since the Dubya years and Democrats while rebounding during the Obama years have fallen off since 2012. The second graph is more dramatic; comparing the two reveals a large number of "closet partisans."
+
+### 2. How could you collapse `rincome` into a small set of categories?
+
+By collapsing the brackets into wider ones.
+
+```{r}
+gss_cat %>% 
+  mutate(rincome = fct_collapse(gss_cat$rincome, 
+    "Did not answer" = c("No answer", "Don't know", "Refused", "Not applicable"),
+    "Mt $20000" = c("$25000 or more", "$20000 - 24999"),
+    "$10000 - 25000" = c("$15000 - 19999", "$10000 - 14999"),
+    "Lt $10000" = c("$8000 to 9999", "$7000 to 7999", "$6000 to 6999", "$5000 to 5999", "$4000 to 4999", "$3000 to 3999", "$1000 to 2999", "Lt $1000")
+    )) %>% 
+  count(rincome) %>% 
+  ggplot(aes(rincome, n, fill = rincome)) +
+  geom_bar(stat = "identity")
+```
+
+Probably overcollapsed, but the levels were pretty broad to begin with ("$25000 or more", *cough cough*).

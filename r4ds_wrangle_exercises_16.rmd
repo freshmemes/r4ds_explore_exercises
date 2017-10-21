@@ -1,0 +1,205 @@
+---
+title: "r4ds_wrangle_exercises_16"
+output: html_document
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(lubridate)
+library(tidyverse)
+library(nycflights13)
+```
+
+## 16.2.4 Exercises
+
+### 1. What happens if you parse a string that contains invalid dates?
+
+```{r}
+ymd(c("2010-10-10", "bananas"))
+```
+
+You get a `failed to parse` message, but it outputs the parsed values anyway, with invalid values replaced with `NA`.
+
+### 2. What does the `tzone` argument to `today()` do? Why is it important?
+
+It specifies which time zone you want the result in. It's important because what date it is depends on what part of the world you're in. China and Australia are one day ahead of the U.S., for example.
+
+### 3. Use the appropriate lubridate function to parse each of the following dates:
+
+```{r}
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2017"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+```
+
+```{r}
+mdy(d1)
+ymd(d2)
+dmy(d3)
+mdy(d4)
+mdy(d5)
+```
+
+## 16.3.4 Exercises
+
+```{r}
+# pasting in flights_dt from the chapter
+make_datetime_100 <- function(year, month, day, time) {
+  make_datetime(year, month, day, time %/% 100, time %% 100)
+}
+
+flights_dt <- flights %>% 
+  filter(!is.na(dep_time), !is.na(arr_time)) %>% 
+  mutate(
+    dep_time = make_datetime_100(year, month, day, dep_time),
+    arr_time = make_datetime_100(year, month, day, arr_time),
+    sched_dep_time = make_datetime_100(year, month, day, sched_dep_time),
+    sched_arr_time = make_datetime_100(year, month, day, sched_arr_time)
+  ) %>% 
+  select(origin, dest, ends_with("delay"), ends_with("time"))
+```
+
+### 1. How does the distribution of flight times within a day change over the course of the year?
+
+
+```{r}
+flights_dt %>% 
+  transmute(month = as.factor(month(dep_time)), hour = as.factor(hour(dep_time))) %>% # limiting to the 2 things we care about
+  count(month, hour) %>%
+  group_by(month) %>%
+  mutate(prop = n/sum(n)) %>% # using a proportion after counting since different months have different amounts of days (February, *cough cough*)
+  ungroup %>% 
+  ggplot(aes(hour, prop)) +
+    geom_line(aes(group = month, color = month))
+```
+
+They mostly look pretty similar...
+
+### 2. Compare `dep_time`, `sched_dep_time` and `dep_delay`. Are they consistent? Explain your findings.
+
+Theoretically, the first one should bethe sum of the last two.
+
+```{r}
+flights_dt %>%
+  filter(!is.na(dep_time), !is.na(sched_dep_time), !is.na(dep_delay)) %>% # turns out this was redundant, but whatever
+  mutate(dep_time_check = sched_dep_time + minutes(dep_delay)) %>%  # alternate way to back into dep_time by adding sched_dep_time and dep_delay
+  filter(dep_time != dep_time_check) # filter to where dep_time and dep_time_check are discrepant; ideally this would yield no results
+```
+
+Apparently, there are 1,205 observations where those 3 variables are not consistent. Looking at the head of this filtered tibble, it seems like the `dep_time`'s date was recorded incorrectly. I.e. the delay was so long that it took over a day, but was still logged as having taken off the same day as the flight was scheduled.
+
+### 3. Compare `air_time` with the duration between the departure and arrival. Explain your findings. (Hint: consider the location of the airport.)
+
+The cheeky hint kind of spoils that there will be a discrepancy from expectation due to the differing time zones of the origin and destination airports.
+
+```{r}
+flights_dt %>% 
+  filter(!is.na(air_time)) %>% 
+  mutate(air_time_check = as.numeric(arr_time - dep_time)) %>%  # taking the difference between arr_time and dep_time
+  filter(air_time != air_time_check) # filtering to find the discrepant observations
+```
+
+So, pretty much every observation has an `air_time` discrepancy. We hypothesized that it was time zones, but if this were true then the difference between `air_time` and `air_time_check` should always be a multiple of 60, which is not the case.
+
+### 4. How does the average delay time change over the course of a day? Should you use `dep_time` or `sched_dep_time`? Why?
+
+Should use `sched_dep_time` because that is the baseline that we are comparing delays against.
+
+```{r}
+flights_dt %>% 
+  mutate(sched_hour = hour(sched_dep_time)) %>% # extracting to just hour of scheduled departure
+  select(sched_hour, dep_delay) %>% 
+  group_by(sched_hour) %>%
+  summarize(avg_dep_delay = mean(dep_delay, na.rm = T)) %>% # average dep_delay by scheduled hour
+  ungroup %>% 
+  ggplot(aes(sched_hour, avg_dep_delay)) +
+    geom_line() +
+    geom_point()
+```
+
+Looks like the later in the day, the worse the delay (ayy, that rhymes) until it peaks from 7 pm to 10 pm. From 10 pm onwards, the delays get shorter by the hour until midnight.
+
+### 5. On what day of the week should you leave if you want to minimise the chance of a delay?
+
+"Minimize the chance of a delay" - I'll take that to mean lowest expected delay time, and _not_ as if we are treating "has delay" as a binary variable where delays of all magnitudes are weighted equally.
+
+```{r}
+flights_dt %>% 
+  mutate(wday = wday(sched_dep_time, label = T)) %>% # day of week with label
+  select(wday, dep_delay) %>% 
+  group_by(wday) %>% 
+  summarize(avg_dep_delay = mean(dep_delay, na.rm = T)) %>% # averaging the dep_delay for each day of week
+  ungroup %>% 
+  ggplot(aes(wday, avg_dep_delay)) +
+    geom_point() +
+    geom_line(aes(group = 1))
+```
+
+Looks like Saturday has the lowest average departure delay.
+
+### 6. What makes the distribution of `diamonds$carat` and `flights$sched_dep_time` similar?
+
+```{r}
+diamonds %>% 
+  filter(!is.na(carat)) %>% 
+  ggplot(aes(x = carat)) +
+    geom_freqpoly(binwidth = 0.1)
+
+flights %>% 
+  filter(!is.na(sched_dep_time)) %>% 
+  ggplot(aes(x = sched_dep_time)) +
+    geom_freqpoly(binwidth = 30)
+```
+
+They're similar in that there are abnormally high number of observations with round number values. Basically, the humans who logged/input the data were being jabronis in both cases.
+
+### 7. Confirm my hypothesis that the ~~early~~ departures of flights in minutes 20-30 and 50-60 are caused by scheduled flights that leave early. Hint: create a binary variable that tells you whether or not a flight was delayed.
+
+```{r}
+flights_dt %>% 
+  transmute(is_delay = (dep_delay > 0), minute = minute(dep_time)) %>% # create binary dep_delay variable, extract minutes
+  group_by(minute) %>% 
+  summarize(pct_delay = mean(is_delay, na.rm = T)) %>% # find proportion of flights delayed by minute
+  ungroup %>% 
+  ggplot(aes(minute, pct_delay)) +
+    geom_point() +
+    geom_line(aes(group = 1))
+```
+
+Indeed, the percentage of delayed flights are much lower around the 20-30 and 50-60 minute intervals. But, I am cautious to say that this proves a causal relationship.
+
+## 16.4.5 Exercises
+
+### 1. Why is there `months()` but no `dmonths()`?
+
+Different months have a different number of days, so there isn't a hard set number of seconds for a potential `dmonths()`.
+
+### 2. Explain `days(overnight * 1)` to someone who has just started learning R. How does it work?
+
+`overnight` is a binary logical variable whose value can either be `TRUE` or `FALSE`. When multiplying `overnight * 1`, `overnight` is first cast to a numeric, `0` for `TRUE` and `1` for FALSE. Therefore the result of the product will be either 1 or 0. The `days` function then results in a duration in seconds, equivalent to either 1 day (if `overnight` was `TRUE`) or 0 days (if `overnight` was `FALSE`).
+
+### 3. Create a vector of dates giving the first day of every month in 2015. Create a vector of dates giving the first day of every month in the _current_ year.
+
+```{r}
+monthbegs2015 <- ymd(20150101) + months(0:11)
+
+monthbegscur <- make_date(year = year(now()), month = 1, day = 1) + months(0:11)
+```
+
+### 4. Write a function that given your birthday (as a date), returns how old you are in years.
+
+```{r}
+ckbd <- ymd(19940308) # March 8, 1994
+now <- now(tzone = "Asia/Harbin") # I was born in Harbin, China
+as.period(interval(ckbd, now)) # time's arrow marches forward
+```
+
+### 5. Why can't `(today() %--% (today() + years(1)) / months(1)` work?
+
+Besides an uneven number of opening and closing parentheses, my R is not recognizing the `%--%` operator correctly.
+
+An attempted alternative that seems to work:
+```{r}
+interval(today(), today() + years(1)) / months(1)
+```

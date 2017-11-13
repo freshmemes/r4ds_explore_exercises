@@ -1,0 +1,84 @@
+---
+title: "peerfeedback28"
+output: html_document
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+
+## Communication
+
+### 28.2.1.1
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(aes(colour = class)) +
+  geom_smooth(se = FALSE) +
+  labs(
+    title = "Fuel efficiency generally decreases with engine size",
+    subtitle = "Two seaters (sports cars) are an exception because of their light weight",
+    caption = "Data from fueleconomy.gov",
+    x = "Engine displacement (L)",
+    y = "Highway fuel economy (mpg)",
+    colour = "Car type"
+  )
+```
+
+Very nicely done - good use of colors with clear labeling.
+
+### 28.2.1.3
+
+```{r}
+ggplot(diamonds, aes(x = carat)) + geom_density() +
+    labs(title = "The Number of Diamonds Generally decrease with an increase in carat", 
+         subtitle = "there are spikes at whole numbers due to human preferance", 
+         x = "Count")
+```
+
+I like that the title and subtitle specifically tell stories within the data.
+
+### 28.4.4.3
+
+```{r}
+presidential %>%
+mutate(id = 33 + row_number()) %>%
+  ggplot(aes(start, id, colour = party)) +
+  geom_point() +
+  geom_segment(aes(xend = end, yend = id)) +
+  scale_colour_manual(values = c(Republican = "red", Democratic = "blue")) +
+  scale_y_continuous(breaks = seq(34, 44, by = 1), labels = presidential$name) +
+  labs(x = "year", y = "President", title = "Presidentail Terms") +
+  scale_x_date(date_breaks = "4 years", date_labels = "%y")
+```
+
+Solid again. Is there a pattern in the data that could have made a fitting title or subtitle?
+
+## Technical Understanding
+
+### 28.3.1
+
+```{r}
+mpg2 <- mpg %>% group_by(cyl) %>% mutate(avg_cty = round(mean(cty),1))
+ggplot(data = mpg2, aes(cty, hwy)) +
+  geom_point() +
+  geom_text(aes(label = avg_cty), y = 45, x = 10) +
+  facet_grid(~cyl)
+```
+
+No worries, the individual labels within facets is definitely a weird thing to hunt down. It involves specifying factor levels within the label; there is a janky implementation of it in my file for an example.
+
+### 28.4.4 (1,2,4)
+
+```{r}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(colour = cut), alpha = 1/20) +
+  guides(color = guide_legend(title = "Quality",override.aes = list(alpha = 1, shape = 1, size = 4)))
+```
+
+Good choice of size and shape in the legend, and alpha in the aesthetics.
+
+## General Notes
+
+Great job on these, Rags. It is clear that you have a very sound understanding of how to create and format plots. One pointer is to make sure the files are saved as the appropriate type (noticed a few files in your repo didn't have an extension) so that they are easily readable/executable.
